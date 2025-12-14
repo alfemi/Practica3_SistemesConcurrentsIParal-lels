@@ -1,3 +1,11 @@
+/* --------------------------------------------------------------- 
+Práctica 1.  
+Código fuente: CalcArbolesConcurrent.c  
+Doble Grau GEIADE 
+41533494W Antonio Cayuela Lopez. 
+48054965F Alejandro Fernandez Mimbrera.
+--------------------------------------------------------------- */ 
+
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
