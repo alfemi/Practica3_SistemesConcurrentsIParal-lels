@@ -231,7 +231,6 @@ void OrdenarArboles(void)
 
 
 // Calcula la combinacin ptima entre el rango de combinaciones PrimeraCombinacion-UltimaCombinacion.
-
 bool CalcularCombinacionOptima(int PrimeraCombinacion, int UltimaCombinacion, PtrListaArboles Optimo)
 {
 	int Combinacion, MejorCombinacion=0, CosteMejorCombinacion;

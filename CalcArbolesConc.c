@@ -13,17 +13,13 @@
 
 #include "CalcArboles.h"
 
-/* ==========================================================
-   CONFIG
-   ========================================================== */
+// constante para imprimir estadisticas cada S combinaciones evaluadas por cada hilo
 #define S 1000000
 
 static int NumHilos = 1;
 static TEstadisticas *EstadisticasHilos = NULL;
 
-/* ==========================================================
-   OPTIMO GLOBAL FINAL (mutex)
-   ========================================================== */
+// mutex para el optimo global final
 static pthread_mutex_t mtx_optimo = PTHREAD_MUTEX_INITIALIZER;
 static int MejorCosteGlobal = DMaximoCoste;
 static int MejorNumTaladosGlobal = DMaxArboles;
@@ -173,10 +169,12 @@ bool GenerarFicheroSalida(TListaArboles Optimo, char *PathFicOut)
 	return GenerarFicheroSalidaFile(Optimo, FicOut);
 }
 
+
 void PrintResultado(TListaArboles Optimo)
 {
     GenerarFicheroSalidaFile(Optimo, stdout);
 }
+
 
 bool GenerarFicheroSalidaFile(TListaArboles Optimo, FILE *FicOut)
 {
@@ -223,157 +221,201 @@ bool GenerarFicheroSalidaFile(TListaArboles Optimo, FILE *FicOut)
 
 	return true;
 }
-/* ==========================================================
-   ORDENACIÓN / PRINTS (igual que secuencial)
-   ========================================================== */
+
+
 
 void OrdenarArboles(void)
 {
-    int a, b;
+  int a,b;
+  
+	for(a=0; a<(ArbolesEntrada.NumArboles-1); a++)
+	{
+		for(b=a+1; b<ArbolesEntrada.NumArboles; b++)
+		{
+			if ( ArbolesEntrada.Arboles[b].Coord.x < ArbolesEntrada.Arboles[a].Coord.x ||
+				 (ArbolesEntrada.Arboles[b].Coord.x == ArbolesEntrada.Arboles[a].Coord.x && ArbolesEntrada.Arboles[b].Coord.y < ArbolesEntrada.Arboles[a].Coord.y) )
+			{
+				TArbol aux;
 
-    for (a = 0; a < (ArbolesEntrada.NumArboles - 1); a++) {
-        for (b = a + 1; b < ArbolesEntrada.NumArboles; b++) {
-            if (ArbolesEntrada.Arboles[b].Coord.x < ArbolesEntrada.Arboles[a].Coord.x ||
-                (ArbolesEntrada.Arboles[b].Coord.x == ArbolesEntrada.Arboles[a].Coord.x &&
-                 ArbolesEntrada.Arboles[b].Coord.y < ArbolesEntrada.Arboles[a].Coord.y)) {
+				// aux=a
+				aux.Coord.x = ArbolesEntrada.Arboles[a].Coord.x;
+				aux.Coord.y = ArbolesEntrada.Arboles[a].Coord.y;
+				aux.IdArbol = ArbolesEntrada.Arboles[a].IdArbol;
+				aux.Valor = ArbolesEntrada.Arboles[a].Valor;
+				aux.Longitud = ArbolesEntrada.Arboles[a].Longitud;
 
-                TArbol aux = ArbolesEntrada.Arboles[a];
-                ArbolesEntrada.Arboles[a] = ArbolesEntrada.Arboles[b];
-                ArbolesEntrada.Arboles[b] = aux;
-            }
-        }
-    }
+				// a=b
+				ArbolesEntrada.Arboles[a].Coord.x = ArbolesEntrada.Arboles[b].Coord.x;
+				ArbolesEntrada.Arboles[a].Coord.y = ArbolesEntrada.Arboles[b].Coord.y;
+				ArbolesEntrada.Arboles[a].IdArbol = ArbolesEntrada.Arboles[b].IdArbol;
+				ArbolesEntrada.Arboles[a].Valor = ArbolesEntrada.Arboles[b].Valor;
+				ArbolesEntrada.Arboles[a].Longitud = ArbolesEntrada.Arboles[b].Longitud;
+
+				// b=aux
+				ArbolesEntrada.Arboles[b].Coord.x = aux.Coord.x;
+				ArbolesEntrada.Arboles[b].Coord.y = aux.Coord.y;
+				ArbolesEntrada.Arboles[b].IdArbol = aux.IdArbol;
+				ArbolesEntrada.Arboles[b].Valor = aux.Valor;
+				ArbolesEntrada.Arboles[b].Longitud = aux.Longitud;
+			}
+		}
+	}
 }
+
+
+int ConvertirCombinacionToArboles(int Combinacion, PtrListaArboles CombinacionArboles)
+{
+	int arbol=0;
+
+	CombinacionArboles->NumArboles=0;
+	CombinacionArboles->Coste=0;
+
+	while (arbol<ArbolesEntrada.NumArboles)
+	{
+		if ((Combinacion%2)==0)
+		{
+			CombinacionArboles->Arboles[CombinacionArboles->NumArboles]=arbol;
+			CombinacionArboles->NumArboles++;
+			CombinacionArboles->Coste+= ArbolesEntrada.Arboles[arbol].Valor;
+		}
+		arbol++;
+		Combinacion = Combinacion>>1;
+	}
+
+	return CombinacionArboles->NumArboles;
+}
+
+
+int ConvertirCombinacionToArbolesTalados(int Combinacion, PtrListaArboles CombinacionArbolesTalados)
+{
+	int arbol=0;
+
+	CombinacionArbolesTalados->NumArboles=0;
+	CombinacionArbolesTalados->Coste=0;
+
+	while (arbol<ArbolesEntrada.NumArboles)
+	{
+		if ((Combinacion%2)==1)
+		{
+			CombinacionArbolesTalados->Arboles[CombinacionArbolesTalados->NumArboles]=arbol;
+			CombinacionArbolesTalados->NumArboles++;
+			CombinacionArbolesTalados->Coste+= ArbolesEntrada.Arboles[arbol].Valor;
+		}
+		arbol++;
+		Combinacion = Combinacion>>1;
+	}
+
+	return CombinacionArbolesTalados->NumArboles;
+}
+
+
+void ObtenerListaCoordenadasArboles(TListaArboles CombinacionArboles, TVectorCoordenadas Coordenadas)
+{
+	int c, arbol;
+
+	for (c=0;c<CombinacionArboles.NumArboles;c++)
+	{
+        arbol=CombinacionArboles.Arboles[c];
+		Coordenadas[c].x = ArbolesEntrada.Arboles[arbol].Coord.x;
+		Coordenadas[c].y = ArbolesEntrada.Arboles[arbol].Coord.y;
+	}
+}
+
+
+float CalcularLongitudCerca(TVectorCoordenadas CoordenadasCerca, int SizeCerca)
+{
+	int x;
+	float coste=0;
+	
+	for (x=0;x<(SizeCerca-1);x++)
+	{
+		coste+= CalcularDistancia(CoordenadasCerca[x].x, CoordenadasCerca[x].y, CoordenadasCerca[x+1].x, CoordenadasCerca[x+1].y);
+	}
+	
+	return coste;
+}
+
+
+float CalcularDistancia(int x1, int y1, int x2, int y2)
+{
+	return(sqrt(pow((double)abs(x2-x1),2.0)+pow((double)abs(y2-y1),2.0)));
+}
+
+
+int CalcularMaderaArbolesTalados(TListaArboles CombinacionArboles)
+{
+	int a;
+	int LongitudTotal=0;
+	
+	for (a=0;a<CombinacionArboles.NumArboles;a++)
+	{
+		LongitudTotal += ArbolesEntrada.Arboles[CombinacionArboles.Arboles[a]].Longitud;
+	}
+	
+	return(LongitudTotal);
+}
+
+
+int CalcularCosteCombinacion(TListaArboles CombinacionArboles)
+{
+	int a;
+	int CosteTotal=0;
+	
+	for (a=0;a<CombinacionArboles.NumArboles;a++)
+	{
+		CosteTotal += ArbolesEntrada.Arboles[CombinacionArboles.Arboles[a]].Valor;
+	}
+	
+	return(CosteTotal);
+}
+
 
 void MostrarBosque(void)
 {
-    for (int a = 0; a < ArbolesEntrada.NumArboles; a++)
+    int a;
+
+    for (a=0;a<ArbolesEntrada.NumArboles;a++)
         PrintArbol(ArbolesEntrada.Arboles[a]);
 }
 
 void PrintArbol(TArbol arbol)
 {
-    printf("Arbol Id:%d --> x:%d,y:%d longitud:%d valor:%d.\n",
-           arbol.IdArbol, arbol.Coord.x, arbol.Coord.y, arbol.Longitud, arbol.Valor);
+    printf("Arbol Id:%d --> x:%d,y:%d longitud:%d valor:%d.\n",arbol.IdArbol, arbol.Coord.x, arbol.Coord.y, arbol.Longitud, arbol.Valor);
 }
+
 
 void MostrarArboles(TListaArboles CombinacionArboles)
 {
-    int a;
+	int a;
 
-    for (a = 0; a < CombinacionArboles.NumArboles; a++)
-        printf("%d ", ArbolesEntrada.Arboles[CombinacionArboles.Arboles[a]].IdArbol);
+	for (a=0;a<CombinacionArboles.NumArboles;a++)
+		printf("%d ",ArbolesEntrada.Arboles[CombinacionArboles.Arboles[a]].IdArbol);
 
-    for (; a < ArbolesEntrada.NumArboles; a++)
-        printf("  ");
+  for (;a<ArbolesEntrada.NumArboles;a++)
+    printf("  ");  
 }
 
 void ResetEstadidisticas(PtrEstadisticas std)
 {
-    memset(std, 0, sizeof(TEstadisticas));
-    std->MejorCombinacionCoste = DMaximoCoste;
-    std->MejorCombinacionArboles = DMaxArboles;
+	memset(std, 0, sizeof(TEstadisticas));
+	std->MejorCombinacionCoste = DMaximoCoste;
+	std->MejorCombinacionArboles = DMaxArboles;
 }
 
 void PrintEstadisticas(TEstadisticas estadisticas, char *tipo)
 {
-    printf("\n++ %s +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n", tipo);
-    printf("++ Comb Evaluadas: %d \tComb Validas: %d \tComb Invalidas:    %d\n",
-           estadisticas.CombinacionesEvaluadas, estadisticas.CombinacionesValidas, estadisticas.CombinacionesNoValidas);
-    printf("++ Mejor Coste:    %d \t\tPeor Coste:   %d  \tMejor num arboles: %d \tPeor num arboles: %d\n",
-           estadisticas.MejorCombinacionCoste, estadisticas.PeorCombinacionCoste,
-           estadisticas.MejorCombinacionArboles, estadisticas.PeorCombinacionArboles);
-    printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	printf("\n++ %s +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n",tipo);
+	printf("++ Comb Evaluadas: %d \tComb Validas: %d \tComb Invalidas:    %d\n",
+						estadisticas.CombinacionesEvaluadas, estadisticas.CombinacionesValidas, estadisticas.CombinacionesNoValidas);
+	printf("++ Mejor Coste:    %d \t\tPeor Coste:   %d  \tMejor num arboles: %d \tPeor num arboles: %d\n",
+					estadisticas.MejorCombinacionCoste, estadisticas.PeorCombinacionCoste,
+					estadisticas.MejorCombinacionArboles, estadisticas.PeorCombinacionArboles);
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+
 }
 
-/* ==========================================================
-   ALGORITMO BASE (igual que secuencial)
-   ========================================================== */
 
-int ConvertirCombinacionToArboles(int Combinacion, PtrListaArboles CombinacionArboles)
-{
-    int arbol = 0;
-
-    CombinacionArboles->NumArboles = 0;
-    CombinacionArboles->Coste = 0;
-
-    while (arbol < ArbolesEntrada.NumArboles) {
-        if ((Combinacion % 2) == 0) {
-            CombinacionArboles->Arboles[CombinacionArboles->NumArboles] = arbol;
-            CombinacionArboles->NumArboles++;
-            CombinacionArboles->Coste += ArbolesEntrada.Arboles[arbol].Valor;
-        }
-        arbol++;
-        Combinacion >>= 1;
-    }
-
-    return CombinacionArboles->NumArboles;
-}
-
-int ConvertirCombinacionToArbolesTalados(int Combinacion, PtrListaArboles CombinacionArbolesTalados)
-{
-    int arbol = 0;
-
-    CombinacionArbolesTalados->NumArboles = 0;
-    CombinacionArbolesTalados->Coste = 0;
-
-    while (arbol < ArbolesEntrada.NumArboles) {
-        if ((Combinacion % 2) == 1) {
-            CombinacionArbolesTalados->Arboles[CombinacionArbolesTalados->NumArboles] = arbol;
-            CombinacionArbolesTalados->NumArboles++;
-            CombinacionArbolesTalados->Coste += ArbolesEntrada.Arboles[arbol].Valor;
-        }
-        arbol++;
-        Combinacion >>= 1;
-    }
-
-    return CombinacionArbolesTalados->NumArboles;
-}
-
-void ObtenerListaCoordenadasArboles(TListaArboles CombinacionArboles, TVectorCoordenadas Coordenadas)
-{
-    for (int c = 0; c < CombinacionArboles.NumArboles; c++) {
-        int arbol = CombinacionArboles.Arboles[c];
-        Coordenadas[c].x = ArbolesEntrada.Arboles[arbol].Coord.x;
-        Coordenadas[c].y = ArbolesEntrada.Arboles[arbol].Coord.y;
-    }
-}
-
-float CalcularDistancia(int x1, int y1, int x2, int y2)
-{
-    return (sqrt(pow((double)abs(x2 - x1), 2.0) + pow((double)abs(y2 - y1), 2.0)));
-}
-
-float CalcularLongitudCerca(TVectorCoordenadas CoordenadasCerca, int SizeCerca)
-{
-    float coste = 0;
-    for (int x = 0; x < (SizeCerca - 1); x++) {
-        coste += CalcularDistancia(CoordenadasCerca[x].x, CoordenadasCerca[x].y,
-                                   CoordenadasCerca[x + 1].x, CoordenadasCerca[x + 1].y);
-    }
-    return coste;
-}
-
-int CalcularMaderaArbolesTalados(TListaArboles CombinacionArboles)
-{
-    int LongitudTotal = 0;
-    for (int a = 0; a < CombinacionArboles.NumArboles; a++)
-        LongitudTotal += ArbolesEntrada.Arboles[CombinacionArboles.Arboles[a]].Longitud;
-    return LongitudTotal;
-}
-
-int CalcularCosteCombinacion(TListaArboles CombinacionArboles)
-{
-    int CosteTotal = 0;
-    for (int a = 0; a < CombinacionArboles.NumArboles; a++)
-        CosteTotal += ArbolesEntrada.Arboles[CombinacionArboles.Arboles[a]].Valor;
-    return CosteTotal;
-}
-
-/* ==========================================================
-   EVALUACIÓN LOCAL (por hilo)
-   ========================================================== */
-
+// evaluacion local que hace cada hilo
 static int EvaluarCombinacionLocal(int Combinacion, TEstadisticas *est, int *outNumTalados)
 {
     TVectorCoordenadas CoordArboles, CercaArboles;
@@ -381,15 +423,23 @@ static int EvaluarCombinacionLocal(int Combinacion, TEstadisticas *est, int *out
     int NumArboles, NumArbolesTalados, PuntosCerca, CosteCombinacion;
     float LongitudCerca, MaderaArbolesTalados;
 
+    // Convertimos la combinacin al vector de arboles no talados.
     NumArboles = ConvertirCombinacionToArboles(Combinacion, &CombinacionArboles);
-    ObtenerListaCoordenadasArboles(CombinacionArboles, CoordArboles);
 
+    // Obtener el vector de coordenadas de arboles no talados.
+    ObtenerListaCoordenadasArboles(CombinacionArboles, CoordArboles);
+	
+    // Calcular la cerca
     PuntosCerca = chainHull_2D(CoordArboles, NumArboles, CercaArboles);
+    
+    /* Evaluar si obtenemos suficientes �boles para construir la cerca */
     LongitudCerca = CalcularLongitudCerca(CercaArboles, PuntosCerca);
 
+    // Evaluar la madera obtenida mediante los arboles talados.
     NumArbolesTalados = ConvertirCombinacionToArbolesTalados(Combinacion, &CombinacionArbolesTalados);
     if (outNumTalados) *outNumTalados = NumArbolesTalados;
 
+    // Evaluar el coste de los arboles talados.
     MaderaArbolesTalados = (float)CalcularMaderaArbolesTalados(CombinacionArbolesTalados);
 
     if (LongitudCerca > MaderaArbolesTalados) {
@@ -399,6 +449,7 @@ static int EvaluarCombinacionLocal(int Combinacion, TEstadisticas *est, int *out
 
     CosteCombinacion = CalcularCosteCombinacion(CombinacionArbolesTalados);
 
+    // Actualizar estadisticas locales del hilo
     est->CombinacionesValidas++;
     if (est->MejorCombinacionCoste > CosteCombinacion) est->MejorCombinacionCoste = CosteCombinacion;
     if (est->PeorCombinacionCoste < CosteCombinacion)  est->PeorCombinacionCoste  = CosteCombinacion;
@@ -408,10 +459,8 @@ static int EvaluarCombinacionLocal(int Combinacion, TEstadisticas *est, int *out
     return CosteCombinacion;
 }
 
-/* ==========================================================
-   OPTIMO GLOBAL FINAL (mutex)
-   ========================================================== */
 
+// resultado optimo global
 static void ActualizarOptimoGlobal(int comb, int coste, int numTalados)
 {
     pthread_mutex_lock(&mtx_optimo);
@@ -429,15 +478,14 @@ static void ActualizarOptimoGlobal(int comb, int coste, int numTalados)
     pthread_mutex_unlock(&mtx_optimo);
 }
 
-/* ==========================================================
-   HILO
-   ========================================================== */
 
+// hilos
 typedef struct {
     int id;
-    int inicio;   /* inclusive */
-    int fin;      /* exclusive */
+    int inicio;   // inicio rango combinaciones a evaluar
+    int fin;      // fin rango combinaciones a evaluar
 } TArgsHilo;
+
 
 static void NotificarFin(void)
 {
@@ -565,10 +613,8 @@ static void *HiloEvaluador(void *ptr)
     return NULL;
 }
 
-/* ==========================================================
-   MERGE STATS (al final)
-   ========================================================== */
 
+// combinar todas las estadisticas de todos los hilos
 static void FusionarEstadisticasGlobales(void)
 {
     ResetEstadidisticas(&TotalEstadisticas);
@@ -592,10 +638,8 @@ static void FusionarEstadisticasGlobales(void)
     }
 }
 
-/* ==========================================================
-   CANCELACIÓN EN ERROR
-   ========================================================== */
 
+// control de errores
 static void CancelarHilos(pthread_t *th, int creados)
 {
     for (int i = 0; i < creados; i++) {
