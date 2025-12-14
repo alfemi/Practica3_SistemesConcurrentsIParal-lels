@@ -1,7 +1,7 @@
 /* --------------------------------------------------------------- 
-Práctica 1.  
-Código fuente: CalcArbolesConcurrent.c  
-Doble Grau GEIADE 
+Práctica 3.  
+Código fuente: CalcArbolesConc.c  
+Doble Grado GEIADE 
 41533494W Antonio Cayuela Lopez. 
 48054965F Alejandro Fernandez Mimbrera.
 --------------------------------------------------------------- */ 
@@ -33,9 +33,7 @@ static int MejorCosteGlobal = DMaximoCoste;
 static int MejorNumTaladosGlobal = DMaxArboles;
 static int MejorCombinacionGlobal = 0;
 
-/* ==========================================================
-   ESPERA FIN (condvar)
-   ========================================================== */
+// variables de condicion
 static pthread_mutex_t mtx_fin = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t  cv_fin  = PTHREAD_COND_INITIALIZER;
 static int HilosTerminados = 0;

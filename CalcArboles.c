@@ -1,7 +1,7 @@
 /* --------------------------------------------------------------- 
-Práctica 1.  
+Práctica 3.  
 Código fuente: CalcArboles.c  
-Doble Grau GEIADE 
+Doble Grado GEIADE 
 41533494W Antonio Cayuela Lopez. 
 48054965F Alejandro Fernandez Mimbrera.
 --------------------------------------------------------------- */ 
