@@ -38,29 +38,21 @@ static pthread_mutex_t mtx_fin = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t  cv_fin  = PTHREAD_COND_INITIALIZER;
 static int HilosTerminados = 0;
 
-/* ==========================================================
-   BARRERA ARRANQUE (semaforo named macOS)
-   ========================================================== */
+
 static sem_t *sem_start = SEM_FAILED;
-static char SEM_START_NAME[64] = {0};   /* lo construimos con PID */
+static char SEM_START_NAME[64] = {0};  
 
-/* ==========================================================
-   PROGRESO / OPTIMO PARCIAL GLOBAL (semaforo named macOS)
-   ========================================================== */
+//para el optimo parcial
 static sem_t *sem_parcial = SEM_FAILED;
-static char SEM_PARCIAL_NAME[64] = {0}; /* lo construimos con PID */
+static char SEM_PARCIAL_NAME[64] = {0};
 
-/* Contador global (va en saltos de S) */
+// contador para la S
 static int CombinacionesGlobales = 0;
 
-/* Óptimo parcial global */
+// parcial global
 static int MejorCosteParcial = DMaximoCoste;
 static int MejorNumTaladosParcial = DMaxArboles;
 static int MejorCombinacionParcial = 0;
-
-/* ==========================================================
-   FUNCIONES I/O (igual que secuencial)
-   ========================================================== */
 
 
 int main(int argc, char *argv[])
@@ -438,7 +430,7 @@ static int EvaluarCombinacionLocal(int Combinacion, TEstadisticas *est, int *out
     // Calcular la cerca
     PuntosCerca = chainHull_2D(CoordArboles, NumArboles, CercaArboles);
     
-    /* Evaluar si obtenemos suficientes �boles para construir la cerca */
+    // Evaluar si obtenemos suficientes �boles para construir la cerca 
     LongitudCerca = CalcularLongitudCerca(CercaArboles, PuntosCerca);
 
     // Evaluar la madera obtenida mediante los arboles talados.
@@ -506,9 +498,9 @@ static void *HiloEvaluador(void *ptr)
     TArgsHilo *a = (TArgsHilo *)ptr;
     TEstadisticas *st = &EstadisticasHilos[a->id];
 
-    /* Barrera de arranque */
+    // arrancar
     if (sem_start != SEM_FAILED) {
-        while (sem_wait(sem_start) == -1 && errno == EINTR) { /* retry */ }
+        while (sem_wait(sem_start) == -1 && errno == EINTR) { // volver a intentar }
     }
 
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
@@ -520,7 +512,7 @@ static void *HiloEvaluador(void *ptr)
     int mejorLocalNumTalados = DMaxArboles;
     int mejorLocalComb = 0;
 
-    /* Para sumar al global solo el bloque nuevo (delta) */
+    // Para sumar al global solo el bloque nuevo
     int last_eval = 0;
     int last_val  = 0;
     int last_inv  = 0;
@@ -531,7 +523,7 @@ static void *HiloEvaluador(void *ptr)
         int coste = EvaluarCombinacionLocal(comb, st, &numTalados);
         st->CombinacionesEvaluadas++;
 
-        /* Mejor local */
+        // mejor comb local
         if (mejorLocalComb == 0 ||
             coste < mejorLocalCoste ||
             (coste == mejorLocalCoste && numTalados < mejorLocalNumTalados) ||
@@ -542,16 +534,16 @@ static void *HiloEvaluador(void *ptr)
             mejorLocalComb = comb;
         }
 
-        /* Cada S combinaciones: update global parcial + print */
+        // Cada S combinaciones actualizar el global parcial y hacer print
         if ((st->CombinacionesEvaluadas % S) == 0) {
 
-            /* Semáforo parcial (named) */
-            while (sem_wait(sem_parcial) == -1 && errno == EINTR) { /* retry */ }
+            // semaforo para el resultado parcial 
+            while (sem_wait(sem_parcial) == -1 && errno == EINTR) { // volver a intentar }
 
-            /* 1) contador global */
+            // contador global
             CombinacionesGlobales += S;
 
-            /* 2) sumar delta a TotalEstadisticas */
+            // sumar a TotalEstadisticas 
             int now_eval = st->CombinacionesEvaluadas;
             int now_val  = st->CombinacionesValidas;
             int now_inv  = st->CombinacionesNoValidas;
@@ -560,7 +552,7 @@ static void *HiloEvaluador(void *ptr)
             TotalEstadisticas.CombinacionesValidas   += (now_val  - last_val);
             TotalEstadisticas.CombinacionesNoValidas += (now_inv  - last_inv);
 
-            /* Mejor/peor global “en caliente” */
+            // mejor/peor global 
             if (TotalEstadisticas.MejorCombinacionCoste > st->MejorCombinacionCoste)
                 TotalEstadisticas.MejorCombinacionCoste = st->MejorCombinacionCoste;
             if (TotalEstadisticas.PeorCombinacionCoste < st->PeorCombinacionCoste)
@@ -575,7 +567,7 @@ static void *HiloEvaluador(void *ptr)
             last_val  = now_val;
             last_inv  = now_inv;
 
-            /* 3) actualizar óptimo parcial global con mejor local del hilo */
+            // actualizar optimo parcial global con mejor local del hilo
             if (mejorLocalComb != 0 &&
                 (MejorCombinacionParcial == 0 ||
                  mejorLocalCoste < MejorCosteParcial ||
@@ -589,7 +581,7 @@ static void *HiloEvaluador(void *ptr)
                 MejorCombinacionParcial = mejorLocalComb;
             }
 
-            /* 4) imprimir “como secuencial” */
+            // imprimir
             TListaArboles OptimoParcial;
             ConvertirCombinacionToArbolesTalados(MejorCombinacionParcial, &OptimoParcial);
 
@@ -610,7 +602,7 @@ static void *HiloEvaluador(void *ptr)
         }
     }
 
-    /* óptimo FINAL global */
+    // optimo final global
     if (mejorLocalComb != 0 && mejorLocalCoste < DMaximoCoste) {
         ActualizarOptimoGlobal(mejorLocalComb, mejorLocalCoste, mejorLocalNumTalados);
     }
@@ -653,10 +645,8 @@ static void CancelarHilos(pthread_t *th, int creados)
     }
 }
 
-/* ==========================================================
-   CÁLCULO ÓPTIMO CONCURRENTE
-   ========================================================== */
 
+// calculo optimo concurrente
 bool CalcularCercaOptima(PtrListaArboles Optimo)
 {
     struct timespec start, finish;
@@ -670,7 +660,7 @@ bool CalcularCercaOptima(PtrListaArboles Optimo)
     if (NumHilos > MaxCombinaciones) NumHilos = MaxCombinaciones;
     if (NumHilos < 1) NumHilos = 1;
 
-    /* Reset globales */
+    // reset globales
     MejorCosteGlobal = DMaximoCoste;
     MejorNumTaladosGlobal = DMaxArboles;
     MejorCombinacionGlobal = 0;
@@ -682,11 +672,11 @@ bool CalcularCercaOptima(PtrListaArboles Optimo)
     CombinacionesGlobales = 0;
     ResetEstadidisticas(&TotalEstadisticas);
 
-    /* Nombres de semáforos con PID (evita colisiones) */
+    // semaforos
     snprintf(SEM_START_NAME, sizeof(SEM_START_NAME), "/ca_start_%d", getpid());
     snprintf(SEM_PARCIAL_NAME, sizeof(SEM_PARCIAL_NAME), "/ca_parcial_%d", getpid());
 
-    /* Crear semáforo parcial (named) valor inicial 1 */
+    // semaforo para los parciales
     sem_unlink(SEM_PARCIAL_NAME);
     sem_parcial = sem_open(SEM_PARCIAL_NAME, O_CREAT | O_EXCL, 0600, 1);
     if (sem_parcial == SEM_FAILED) {
@@ -721,7 +711,7 @@ bool CalcularCercaOptima(PtrListaArboles Optimo)
         return false;
     }
 
-    /* Crear semáforo start (named) valor inicial 0 */
+    
     sem_unlink(SEM_START_NAME);
     sem_start = sem_open(SEM_START_NAME, O_CREAT | O_EXCL, 0600, 0);
     if (sem_start == SEM_FAILED) {
@@ -761,7 +751,7 @@ bool CalcularCercaOptima(PtrListaArboles Optimo)
             fprintf(stderr, "pthread_create fallo (%d): %s\n", rc, strerror(rc));
             CancelarHilos(th, creados);
 
-            /* Liberar barrera a los ya creados */
+            // Liberar barrera a los ya creados 
             for (int k = 0; k < creados; k++) sem_post(sem_start);
 
             pthread_mutex_lock(&mtx_fin);
@@ -790,10 +780,10 @@ bool CalcularCercaOptima(PtrListaArboles Optimo)
         creados++;
     }
 
-    /* Soltar barrera: arrancan todos */
+    // "soltar barrera": arrancan todos los hilos
     for (int i = 0; i < NumHilos; i++) sem_post(sem_start);
 
-    /* Espera pasiva fin */
+    // espera pasiva fin
     pthread_mutex_lock(&mtx_fin);
     while (HilosTerminados < NumHilos) {
         pthread_cond_wait(&cv_fin, &mtx_fin);
@@ -804,7 +794,7 @@ bool CalcularCercaOptima(PtrListaArboles Optimo)
     elapsed_sec  = (finish.tv_sec - start.tv_sec);
     elapsed_sec += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
 
-    /* Limpieza semáforos */
+
     sem_close(sem_start);
     sem_unlink(SEM_START_NAME);
     sem_start = SEM_FAILED;
@@ -813,10 +803,10 @@ bool CalcularCercaOptima(PtrListaArboles Optimo)
     sem_unlink(SEM_PARCIAL_NAME);
     sem_parcial = SEM_FAILED;
 
-    /* Estadísticas finales exactas */
+    // estadisticas finales exactas 
     FusionarEstadisticasGlobales();
 
-    /* Construir óptimo final (igual que secuencial) */
+    //optimo final
     Optimo->NumArboles = 0;
     Optimo->Coste = MejorCosteGlobal;
 
