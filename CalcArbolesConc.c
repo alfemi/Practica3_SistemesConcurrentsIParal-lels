@@ -500,7 +500,8 @@ static void *HiloEvaluador(void *ptr)
 
     // arrancar
     if (sem_start != SEM_FAILED) {
-        while (sem_wait(sem_start) == -1 && errno == EINTR) { // volver a intentar }
+        while (sem_wait(sem_start) == -1 && errno == EINTR) { // volver a intentar 
+        }
     }
 
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
@@ -538,7 +539,8 @@ static void *HiloEvaluador(void *ptr)
         if ((st->CombinacionesEvaluadas % S) == 0) {
 
             // semaforo para el resultado parcial 
-            while (sem_wait(sem_parcial) == -1 && errno == EINTR) { // volver a intentar }
+            while (sem_wait(sem_parcial) == -1 && errno == EINTR) { // volver a intentar 
+                }
 
             // contador global
             CombinacionesGlobales += S;
